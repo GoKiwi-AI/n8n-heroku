@@ -4,8 +4,11 @@ FROM n8nio/n8n:2.13.4@sha256:ab216dc8d10d1940a07f41f04355011ab03d0dec1fc03d62d5d
 USER root
 
 COPY ./scripts/patch-facebook-lead-ads-trigger.mjs /tmp/patch-facebook-lead-ads-trigger.mjs
-RUN node /tmp/patch-facebook-lead-ads-trigger.mjs \
-	/usr/local/lib/node_modules/n8n/node_modules/n8n-nodes-base/dist/nodes/FacebookLeadAds/FacebookLeadAdsTrigger.node.js \
+RUN files="$(find /usr/local/lib/node_modules -path '*/FacebookLeadAdsTrigger.node.js')" \
+	&& [ -n "$files" ] \
+	&& for file in $files; do \
+		node /tmp/patch-facebook-lead-ads-trigger.mjs "$file"; \
+	done \
 	&& rm /tmp/patch-facebook-lead-ads-trigger.mjs
 
 WORKDIR /home/node/packages/cli
