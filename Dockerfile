@@ -4,7 +4,7 @@ FROM n8nio/n8n:2.13.4@sha256:ab216dc8d10d1940a07f41f04355011ab03d0dec1fc03d62d5d
 USER root
 
 COPY ./scripts/patch-facebook-lead-ads-trigger.mjs /tmp/patch-facebook-lead-ads-trigger.mjs
-RUN files="$(find /usr/local/lib/node_modules -path '*/FacebookLeadAdsTrigger.node.js')" \
+RUN files="$(find /usr/local/lib/node_modules \( -path '*/FacebookLeadAdsTrigger.node.js' -o -path '*/types/nodes.json' \))" \
 	&& [ -n "$files" ] \
 	&& for file in $files; do \
 		node /tmp/patch-facebook-lead-ads-trigger.mjs "$file"; \

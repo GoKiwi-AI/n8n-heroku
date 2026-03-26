@@ -3,9 +3,10 @@ import test from 'node:test';
 const scriptUrl = new URL('../scripts/patch-facebook-lead-ads-trigger.mjs', import.meta.url);
 
 let patchFacebookLeadAdsTrigger = (source) => source;
+let patchFacebookLeadAdsTriggerTypes = (source) => source;
 
 try {
-	({ patchFacebookLeadAdsTrigger } = await import(scriptUrl.href));
+	({ patchFacebookLeadAdsTrigger, patchFacebookLeadAdsTriggerTypes } = await import(scriptUrl.href));
 } catch {}
 
 const compiledNodeFixture = `"use strict";
@@ -60,6 +61,9 @@ class FacebookLeadAdsTrigger {
     }
 }`;
 
+const compiledTypesFixture =
+	'{"displayName":"Facebook Lead Ads Trigger","name":"facebookLeadAdsTrigger","properties":[{"displayName":"Page","name":"page","type":"resourceLocator","default":{"mode":"list","value":""},"required":true,"description":"The page linked to the form for retrieving new leads","modes":[{"displayName":"From List","name":"list","type":"list","typeOptions":{"searchListMethod":"pageList"}},{"displayName":"By ID","name":"id","type":"string","placeholder":"121637951029080"}]},{"displayName":"Form","name":"form","type":"resourceLocator","default":{"mode":"list","value":""},"required":true,"description":"The form to monitor for fetching lead details upon submission","modes":[{"displayName":"From List","name":"list","type":"list","typeOptions":{"searchListMethod":"formList"}},{"displayName":"By ID","name":"id","type":"string","placeholder":"121637951029080"}]},{"displayName":"Options","name":"options","type":"collection","placeholder":"Add option","default":{},"options":[{"displayName":"Simplify Output","name":"simplifyOutput","type":"boolean","default":true,"description":"Whether to return a simplified version of the webhook event instead of all fields"}]}]}';
+
 test('removes the form selector and form_id filter from the compiled node', () => {
 	const patchedSource = patchFacebookLeadAdsTrigger(compiledNodeFixture);
 
@@ -76,5 +80,17 @@ test('fails fast when the upstream compiled node shape changes', () => {
 	assert.throws(
 		() => patchFacebookLeadAdsTrigger('const unrelated = true;'),
 		/Unable to apply Facebook Lead Ads Trigger patch/,
+	);
+});
+
+test('removes the form selector from the compiled node type metadata', () => {
+	const patchedSource = patchFacebookLeadAdsTriggerTypes(compiledTypesFixture);
+
+	assert.doesNotMatch(patchedSource, /"displayName":"Form"/);
+	assert.doesNotMatch(patchedSource, /"name":"form"/);
+	assert.doesNotMatch(patchedSource, /"searchListMethod":"formList"/);
+	assert.match(
+		patchedSource,
+		/"description":"The page to monitor for retrieving new leads across all forms"/,
 	);
 });

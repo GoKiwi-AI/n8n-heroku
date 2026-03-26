@@ -46,6 +46,14 @@ const FORM_FILTER_REPLACEMENT = `            .filter((change) => change.field ==
             change.value.page_id === pageId)
 `;
 
+const TYPES_PAGE_DESCRIPTION =
+	'"description":"The page linked to the form for retrieving new leads"';
+const TYPES_PAGE_DESCRIPTION_REPLACEMENT =
+	'"description":"The page to monitor for retrieving new leads across all forms"';
+
+const TYPES_FORM_PROPERTY =
+	/,\{"displayName":"Form","name":"form","type":"resourceLocator","default":\{"mode":"list","value":""\},"required":true,"description":"The form to monitor for fetching lead details upon submission","modes":\[\{"displayName":"From List","name":"list","type":"list","typeOptions":\{"searchListMethod":"formList"\}\},\{"displayName":"By ID","name":"id","type":"string","placeholder":"121637951029080"\}\]\}/;
+
 function replaceExactlyOnce(source, searchValue, replacementValue, label) {
 	const occurrences = source.split(searchValue).length - 1;
 
@@ -54,6 +62,16 @@ function replaceExactlyOnce(source, searchValue, replacementValue, label) {
 	}
 
 	return source.replace(searchValue, replacementValue);
+}
+
+function replaceExactlyOnceRegex(source, searchPattern, replacementValue, label) {
+	const matches = source.match(new RegExp(searchPattern.source, searchPattern.flags.includes('g') ? searchPattern.flags : `${searchPattern.flags}g`)) ?? [];
+
+	if (matches.length !== 1) {
+		throw new Error(`${PATCH_ERROR_PREFIX}: expected 1 ${label} match, found ${matches.length}`);
+	}
+
+	return source.replace(searchPattern, replacementValue);
 }
 
 export function patchFacebookLeadAdsTrigger(source) {
@@ -81,9 +99,40 @@ export function patchFacebookLeadAdsTrigger(source) {
 	return patchedSource;
 }
 
+export function patchFacebookLeadAdsTriggerTypes(source) {
+	if (!source.includes('"name":"facebookLeadAdsTrigger"')) {
+		throw new Error(`${PATCH_ERROR_PREFIX}: expected the compiled Facebook Lead Ads Trigger types`);
+	}
+
+	let patchedSource = source;
+
+	patchedSource = replaceExactlyOnce(
+		patchedSource,
+		TYPES_PAGE_DESCRIPTION,
+		TYPES_PAGE_DESCRIPTION_REPLACEMENT,
+		'types page description',
+	);
+	patchedSource = replaceExactlyOnceRegex(
+		patchedSource,
+		TYPES_FORM_PROPERTY,
+		'',
+		'types form property block',
+	);
+
+	return patchedSource;
+}
+
 export async function patchFacebookLeadAdsTriggerFile(filePath) {
 	const source = await readFile(filePath, 'utf8');
-	const patchedSource = patchFacebookLeadAdsTrigger(source);
+	let patchedSource;
+
+	if (filePath.endsWith('/FacebookLeadAdsTrigger.node.js')) {
+		patchedSource = patchFacebookLeadAdsTrigger(source);
+	} else if (filePath.endsWith('/types/nodes.json')) {
+		patchedSource = patchFacebookLeadAdsTriggerTypes(source);
+	} else {
+		throw new Error(`${PATCH_ERROR_PREFIX}: unsupported file path ${filePath}`);
+	}
 
 	if (patchedSource !== source) {
 		await writeFile(filePath, patchedSource, 'utf8');
